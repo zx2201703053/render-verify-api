@@ -1,70 +1,49 @@
 from flask import Flask, request, jsonify
-from flask_cors import CORS
+import json
+import os
 
 app = Flask(__name__)
-CORS(app) # 允许跨域
+DB_FILE = "users.json"
+APP_KEY = "stock_ai_2025"
 
-# 模拟的账号数据库（这里应改为真实数据库）
-# 格式: username: {"pwd": "md5密码", "machine": "绑定码"}
-user_db = {
-    "admin": {
-        "pwd": "123456", # 这里保持明文或使用md5加密，代码逻辑是对比pwd
-        "machine": "" # 留空则不限制机器码
-    }
-}
+if not os.path.exists(DB_FILE):
+    with open(DB_FILE, "w", encoding="utf-8") as f:
+        json.dump({}, f)
 
-@app.route('/verify', methods=['POST'])
+def load():
+    with open(DB_FILE, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+def save(data):
+    with open(DB_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
+
+# ====== 登录验证接口 ======
+@app.route("/verify", methods=["POST"])
 def verify():
-    """
-    本地GUI登录验证接口
-    接收：appkey, user, pwd, machine
-    返回：status: ok 或 error
-    """
-    data = request.get_json()
-    appkey = data.get("appkey")
-    username = data.get("user")
-    password = data.get("pwd")
-    client_machine = data.get("machine")
+    j = request.json
+    if j.get("appkey") != APP_KEY:
+        return jsonify({"status":"fail"})
+    users = load()
+    user = users.get(j.get("user"))
+    if not user or user.get("pwd") != j.get("pwd"):
+        return jsonify({"status":"fail"})
+    mc = j.get("machine")
+    if not user.get("machine"):
+        user["machine"] = mc
+        save(users)
+    if user.get("machine") != mc:
+        return jsonify({"status":"fail"})
+    return jsonify({"status":"ok"})
 
-    # 1. 验证AppKey
-    if appkey != "stock_ai_2025":
-        return jsonify({"status": "error", "msg": "非法应用"}), 403
+# ====== 后台添加账号 ======
+@app.route("/admin/add", methods=["POST"])
+def add():
+    j = request.json
+    users = load()
+    users[j["user"]] = {"pwd": j["pwd"], "machine": ""}
+    save(users)
+    return jsonify({"status":"ok"})
 
-    # 2. 检查用户是否存在
-    user_info = user_db.get(username)
-    if not user_info:
-        return jsonify({"status": "error", "msg": "账号不存在"}), 404
-
-    # 3. 验证密码
-    if user_info["pwd"] != password:
-        return jsonify({"status": "error", "msg": "密码错误"}), 401
-
-    # 4. (可选) 验证机器码绑定。如果不想绑定，直接跳过这一步返回ok
-    # bound_machine = user_info.get("machine", "")
-    # if bound_machine and bound_machine != client_machine:
-    #     return jsonify({"status": "error", "msg": "账号已绑定其他电脑"}), 403
-
-    # 5. 所有验证通过。如果需要绑定机器码，在这里更新machine字段
-    # if not bound_machine:
-    #     user_db[username]["machine"] = client_machine
-
-    return jsonify({"status": "ok"})
-
-@app.route('/admin/add', methods=['POST'])
-def admin_add():
-    """
-    原有的添加账号接口（用于Postman测试）
-    """
-    data = request.get_json()
-    user = data.get("user")
-    pwd = data.get("pwd")
-    
-    if user and pwd:
-        user_db[user] = {"pwd": pwd, "machine": ""}
-        return jsonify({"status": "ok", "msg": "账号添加成功"})
-    else:
-        return jsonify({"status": "error", "msg": "参数错误"}), 400
-
-if __name__ == '__main__':
-    # Render使用0.0.0.0和默认端口
-    app.run(host='0.0.0.0', port=10080)
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000)
