@@ -18,7 +18,7 @@ def save(data):
     with open(DB_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
 
-# ====== 登录验证接口 ======
+# ====== 霅橃⿲铯氳伅鞂堨櫙 ======
 @app.route("/verify", methods=["POST"])
 def verify():
     j = request.json
@@ -36,7 +36,7 @@ def verify():
         return jsonify({"status":"fail"})
     return jsonify({"status":"ok"})
 
-# ====== 后台添加账号 ======
+# ====== 牍堟啯璀啀鐟祤 ======
 @app.route("/admin/add", methods=["POST"])
 def add():
     j = request.json
