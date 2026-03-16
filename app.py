@@ -44,7 +44,7 @@ def verify():
             return jsonify({"status": "fail", "msg": "密码错误"})
         
         # 5. 验证/绑定机器码
-        client_machine = j.get("machine")
+        client_machine = j.get("machine","")
         bound_machine = user.get("machine", "")
         
         # 5.1 首次登录：绑定当前机器码
@@ -52,9 +52,11 @@ def verify():
             user["machine"] = client_machine
             save(users)
             return jsonify({"status": "ok", "msg": "首次登录，已绑定当前设备"})
-        
+        # 补充：首次登录但未传machine → 提示需传入机器码
+        elif not bound_machine and not client_machine:
+            return jsonify({"status": "fail", "msg": "首次登录需传入机器码"})
         # 5.2 非首次登录：验证机器码
-        if bound_machine != client_machine:
+        if client_machine and bound_machine != client_machine:
             return jsonify({"status": "fail", "msg": "账号已绑定其他电脑"})
         
         # 6. 所有验证通过
