@@ -25,7 +25,14 @@ def save(data):
 @app.route("/verify", methods=["POST"])
 def verify():
     try:
+        # 第一步：校验请求格式
+        if not request.is_json:
+            return jsonify({"status": "fail", "msg": "请求格式必须为application/json"})
         j = request.json
+        required_fields = ["appkey", "user", "pwd", "machine"]
+        for field in required_fields:
+            if field not in j:
+                return jsonify({"status": "fail", "msg": f"缺少必填字段：{field}"})
         # 1. 验证 AppKey
         if j.get("appkey") != APP_KEY:
             return jsonify({"status": "fail", "msg": "非法应用"})
@@ -64,8 +71,19 @@ def verify():
     
     except Exception as e:
         print(f"验证异常：{str(e)}")
-        return jsonify({"status": "fail", "msg": f"服务器异常：{str(e)}"})
+        return jsonify({"status": "fail", "msg": "服务器异常，请联系管理员"})
+# 新增鉴权装饰器
+def admin_auth(func):
+    def wrapper(*args, **kwargs):
+        j = request.json
+        if j.get("admin_key") != "你的管理员密钥（自定义）":  # 替换为强密钥
+            return jsonify({"status": "fail", "msg": "无管理员权限"})
+        return func(*args, **kwargs)
+    return wrapper
 
+# 给管理员接口加装饰器
+@app.route("/admin/add", methods=["POST"])
+@admin_auth
 # ====== 后台添加账号接口 ======
 @app.route("/admin/add", methods=["POST"])
 def add():
@@ -81,6 +99,7 @@ def add():
 
 # ====== 后台解绑机器码接口（可选，方便管理） ======
 @app.route("/admin/unbind", methods=["POST"])
+@admin_auth
 def unbind():
     try:
         j = request.json
